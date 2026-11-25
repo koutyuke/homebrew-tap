@@ -12,7 +12,7 @@ brew install --cask koutyuke/tap/capsaicin
 
 The cask also links the `capsaicin` command.
 
-Capsaicin installs its own updates from within the app, so you don't need `brew upgrade` for it. `brew upgrade` skips Capsaicin unless you pass `--greedy`.
+Capsaicin installs its own updates from within the app, so you don't need `brew upgrade` for it. To update it with `brew upgrade`, pass `--greedy`.
 
 If you installed the helper, remove it before uninstalling: open Capsaicin's settings, go to **Helper**, and click **Remove…**. Then run:
 
