@@ -13,6 +13,8 @@ concurrency:
 jobs:
   capsaicin:
     name: Update Capsaicin
+    # setup-homebrew checks out the default branch name, so only run there.
+    if: github.ref == 'refs/heads/main'
     runs-on: macos-latest
     timeout-minutes: 15
     permissions:
@@ -27,6 +29,7 @@ jobs:
         id: livecheck
         run: |
           result="$(brew livecheck --cask --json "$CASK")"
+          echo "$result"
           echo "version=$(jq -r '.[0].version.latest' <<<"$result")" >>"$GITHUB_OUTPUT"
           echo "outdated=$(jq -r '.[0].version.outdated' <<<"$result")" >>"$GITHUB_OUTPUT"
       - name: Verify the DMG
@@ -58,4 +61,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "capsaicin $VERSION" Casks/capsaicin.rb
           gh auth setup-git
-          git push origin HEAD
+          git push origin HEAD:main
