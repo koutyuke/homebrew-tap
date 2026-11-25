@@ -1,0 +1,61 @@
+name: Update cask
+
+on:
+  schedule:
+    - cron: "23 */6 * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: update-cask
+
+jobs:
+  capsaicin:
+    name: Update Capsaicin
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      CASK: koutyuke/tap/capsaicin
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # Checks out this tap into the Homebrew prefix and trusts it.
+      - uses: Homebrew/actions/setup-homebrew@75064b260aea50a4b3dd1352975747d5576aaf05 # main
+      - name: Find the latest stable version
+        id: livecheck
+        run: |
+          result="$(brew livecheck --cask --json "$CASK")"
+          echo "version=$(jq -r '.[0].version.latest' <<<"$result")" >>"$GITHUB_OUTPUT"
+          echo "outdated=$(jq -r '.[0].version.outdated' <<<"$result")" >>"$GITHUB_OUTPUT"
+      - name: Verify the DMG
+        if: steps.livecheck.outputs.outdated == 'true'
+        id: dmg
+        env:
+          VERSION: ${{ steps.livecheck.outputs.version }}
+        run: |
+          dmg="Capsaicin-$VERSION.dmg"
+          gh release download "v$VERSION" --repo koutyuke/Capsaicin --pattern "$dmg" --dir "$RUNNER_TEMP"
+          # Only accept a DMG built and published by Capsaicin's Release workflow.
+          gh attestation verify "$RUNNER_TEMP/$dmg" --repo koutyuke/Capsaicin \
+            --signer-workflow koutyuke/Capsaicin/.github/workflows/release.yml
+          echo "sha256=$(shasum -a 256 "$RUNNER_TEMP/$dmg" | cut -d ' ' -f 1)" >>"$GITHUB_OUTPUT"
+      - name: Update and push
+        if: steps.livecheck.outputs.outdated == 'true'
+        env:
+          VERSION: ${{ steps.livecheck.outputs.version }}
+          SHA256: ${{ steps.dmg.outputs.sha256 }}
+        run: |
+          sed -i '' -E \
+            -e "s/^  version \".*\"$/  version \"$VERSION\"/" \
+            -e "s/^  sha256 \".*\"$/  sha256 \"$SHA256\"/" \
+            Casks/capsaicin.rb
+          git diff --exit-code --quiet Casks/capsaicin.rb && { echo "::error::Cask was not changed"; exit 1; }
+          brew style "$CASK"
+          brew audit --cask --online --strict "$CASK"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "capsaicin $VERSION" Casks/capsaicin.rb
+          gh auth setup-git
+          git push origin HEAD

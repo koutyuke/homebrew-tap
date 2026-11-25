@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+jobs:
+  audit:
+    name: Style and audit
+    runs-on: macos-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      # Checks out this tap into the Homebrew prefix and trusts it.
+      - uses: Homebrew/actions/setup-homebrew@75064b260aea50a4b3dd1352975747d5576aaf05 # main
+      - run: brew style koutyuke/tap
+      - run: brew audit --cask --online --strict koutyuke/tap/capsaicin
